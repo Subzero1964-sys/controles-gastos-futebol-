@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de Pagamentos — Sábado</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --pitch: #1B4332;
+    --pitch-dark: #10281F;
+    --chalk: #F7F5EF;
+    --line: #DEDACD;
+    --ink: #1C1C1A;
+    --muted: #6B6A62;
+    --gold: #C9971C;
+    --gold-bg: #FBF0D6;
+    --red: #B23A2F;
+    --red-bg: #F8E4E1;
+    --green: #2F6B3C;
+    --green-bg: #E4EFE3;
+    --radius: 10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Inter',sans-serif;
+    background:var(--chalk);
+    color:var(--ink);
+    padding-bottom:60px;
+  }
+  header{
+    background:var(--pitch);
+    background-image: repeating-linear-gradient(90deg, var(--pitch) 0px, var(--pitch) 40px, var(--pitch-dark) 40px, var(--pitch-dark) 80px);
+    color:var(--chalk);
+    padding:28px 20px 24px;
+  }
+  .header-inner{max-width:720px;margin:0 auto;}
+  h1{
+    font-family:'Archivo Black',sans-serif;
+    font-size:28px;
+    margin:0 0 4px;
+    letter-spacing:0.5px;
+  }
+  .subtitle{font-size:14px;opacity:0.85;margin:0;}
+  main{max-width:720px;margin:0 auto;padding:20px;}
+
+  .summary-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    margin-bottom:24px;
+  }
+  .stat{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:14px 12px;
+    text-align:center;
+  }
+  .stat .num{font-size:22px;font-weight:700;}
+  .stat .lbl{font-size:12px;color:var(--muted);margin-top:2px;}
+  .stat.debt .num{color:var(--red);}
+  .stat.paid .num{color:var(--green);}
+
+  section{margin-bottom:28px;}
+  .section-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:10px;
+  }
+  h2{
+    font-size:16px;
+    font-weight:700;
+    margin:0;
+  }
+  .add-row{display:flex;gap:8px;margin-bottom:12px;}
+  input[type=text], input[type=date]{
+    flex:1;
+    padding:9px 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:14px;
+    font-family:inherit;
+    background:#fff;
+  }
+  button{
+    font-family:inherit;
+    font-size:14px;
+    font-weight:600;
+    border-radius:8px;
+    border:1px solid var(--pitch);
+    background:var(--pitch);
+    color:#fff;
+    padding:9px 16px;
+    cursor:pointer;
+  }
+  button:active{opacity:0.85;}
+  button.ghost{
+    background:transparent;
+    color:var(--pitch);
+  }
+  button.small{
+    padding:5px 10px;
+    font-size:12px;
+  }
+
+  .player-list{display:flex;flex-wrap:wrap;gap:8px;}
+  .player-chip{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:20px;
+    padding:6px 8px 6px 14px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-size:14px;
+    font-weight:500;
+  }
+  .player-chip button{
+    background:transparent;border:none;color:var(--muted);
+    padding:2px 6px;font-size:14px;line-height:1;border-radius:50%;
+  }
+  .player-chip button:hover{color:var(--red);}
+
+  .session-card{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    margin-bottom:12px;
+  }
+  .session-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:10px;
+  }
+  .session-date{font-weight:700;font-size:15px;}
+  .session-sub{font-size:12px;color:var(--muted);}
+  .remove-session{background:transparent;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 6px;}
+  .remove-session:hover{color:var(--red);}
+
+  .pay-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:7px 0;
+    border-top:1px solid var(--line);
+  }
+  .pay-row:first-of-type{border-top:none;}
+  .pay-name{font-size:14px;}
+  .pay-toggle{
+    border:1px solid var(--line);
+    background:var(--red-bg);
+    color:var(--red);
+    font-size:12px;
+    font-weight:700;
+    padding:5px 12px;
+    border-radius:16px;
+    cursor:pointer;
+  }
+  .pay-toggle.paid{
+    background:var(--green-bg);
+    color:var(--green);
+  }
+
+  .player-summary{
+    background:#fff;
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .ps-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:11px 16px;
+    border-top:1px solid var(--line);
+  }
+  .ps-row:first-child{border-top:none;}
+  .ps-name{font-weight:600;font-size:14px;}
+  .ps-detail{font-size:12px;color:var(--muted);}
+  .ps-amount{font-weight:700;font-size:14px;}
+  .ps-amount.zero{color:var(--green);}
+  .ps-amount.due{color:var(--red);}
+
+  .empty{
+    color:var(--muted);
+    font-size:13px;
+    padding:14px;
+    text-align:center;
+    background:#fff;
+    border:1px dashed var(--line);
+    border-radius:var(--radius);
+  }
+  .price-note{
+    font-size:12px;color:var(--muted);margin-top:-2px;margin-bottom:16px;
+  }
+  .price-note b{color:var(--gold);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <h1>Controle de pagamentos</h1>
+    <p class="subtitle">Turma de sábado — <span id="price-display">R$ 13,00</span> por jogo</p>
+    <p class="subtitle" id="sync-status" style="margin-top:6px;font-size:12px;">Conectando…</p>
+  </div>
+</header>
+
+<main>
+
+  <div class="summary-grid">
+    <div class="stat"><div class="num" id="stat-players">0</div><div class="lbl">jogadores</div></div>
+    <div class="stat paid"><div class="num" id="stat-paid">R$ 0</div><div class="lbl">recebido</div></div>
+    <div class="stat debt"><div class="num" id="stat-due">R$ 0</div><div class="lbl">em aberto</div></div>
+  </div>
+
+  <section>
+    <div class="section-head"><h2>Jogadores</h2></div>
+    <div class="add-row">
+      <input type="text" id="player-name-input" placeholder="Nome do jogador">
+      <button id="add-player-btn">Adicionar</button>
+    </div>
+    <div class="player-list" id="player-list"></div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>Sábados</h2></div>
+    <div class="add-row">
+      <input type="date" id="session-date-input">
+      <button id="add-session-btn">Novo sábado</button>
+    </div>
+    <div id="sessions-container"></div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>Saldo por jogador</h2></div>
+    <div class="player-summary" id="player-summary"></div>
+  </section>
+
+</main>
+
+<script>
+// PREENCHA_AQUI: cole aqui o objeto firebaseConfig que o Firebase te dá
+// (Configurações do projeto > Seus apps > ícone Web </>)
+const firebaseConfig = {
+  apiKey: "AIzaSyAQ3astU8BnzOWhKnR2OEwroHfV8opaVQg",
+  authDomain: "controle-futebol-a90d4.firebaseapp.com",
+  databaseURL: "https://controle-futebol-a90d4-default-rtdb.firebaseio.com",
+  projectId: "controle-futebol-a90d4",
+  storageBucket: "controle-futebol-a90d4.firebasestorage.app",
+  messagingSenderId: "1055623608881",
+  appId: "1:1055623608881:web:5ee49ce827263bc75ab310"
+};
+
+firebase.initializeApp(firebaseConfig);
+const dbRef = firebase.database().ref('turma-sabado/dados');
+
+const PRICE = 13;
+let data = { players: [], sessions: [] };
+let saveTimer = null;
+let isRemoteUpdate = false;
+
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function nextSaturday(){
+  const d = new Date();
+  const day = d.getDay();
+  const diff = (6 - day + 7) % 7;
+  d.setDate(d.getDate() + diff);
+  return d.toISOString().slice(0,10);
+}
+
+function fmtDate(iso){
+  const [y,m,dd] = iso.split('-');
+  return `${dd}/${m}/${y}`;
+}
+
+function fmtBRL(n){
+  return 'R$ ' + n.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+}
+
+function load(){
+  document.getElementById('session-date-input').value = nextSaturday();
+
+  dbRef.on('value', snapshot => {
+    const statusEl = document.getElementById('sync-status');
+    const val = snapshot.val();
+    if(val){
+      isRemoteUpdate = true;
+      data.players = Array.isArray(val.players) ? val.players : [];
+      data.sessions = Array.isArray(val.sessions) ? val.sessions : [];
+      isRemoteUpdate = false;
+    }
+    statusEl.textContent = 'Sincronizado';
+    render();
+  }, error => {
+    document.getElementById('sync-status').textContent = 'Erro de conexão — confira firebaseConfig';
+    console.error(error);
+  });
+}
+
+function scheduleSave(){
+  if(isRemoteUpdate) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(save, 250);
+}
+
+async function save(){
+  try{
+    document.getElementById('sync-status').textContent = 'Salvando…';
+    await dbRef.set(data);
+    document.getElementById('sync-status').textContent = 'Sincronizado';
+  }catch(e){
+    document.getElementById('sync-status').textContent = 'Erro ao salvar';
+    console.error('erro ao salvar', e);
+  }
+}
+
+function addPlayer(){
+  const input = document.getElementById('player-name-input');
+  const name = input.value.trim();
+  if(!name) return;
+  data.players.push({ id: uid(), name });
+  input.value = '';
+  scheduleSave();
+  render();
+}
+
+function removePlayer(id){
+  data.players = data.players.filter(p => p.id !== id);
+  data.sessions.forEach(s => { delete s.payments[id]; });
+  scheduleSave();
+  render();
+}
+
+function addSession(){
+  const input = document.getElementById('session-date-input');
+  const dateVal = input.value;
+  if(!dateVal) return;
+  if(data.sessions.some(s => s.date === dateVal)) return;
+  data.sessions.push({ id: uid(), date: dateVal, payments: {} });
+  data.sessions.sort((a,b) => b.date.localeCompare(a.date));
+  scheduleSave();
+  render();
+}
+
+function removeSession(id){
+  data.sessions = data.sessions.filter(s => s.id !== id);
+  scheduleSave();
+  render();
+}
+
+function togglePayment(sessionId, playerId){
+  const session = data.sessions.find(s => s.id === sessionId);
+  if(!session) return;
+  session.payments[playerId] = !session.payments[playerId];
+  scheduleSave();
+  render();
+}
+
+function render(){
+  // players
+  const list = document.getElementById('player-list');
+  if(data.players.length === 0){
+    list.innerHTML = '<div class="empty">Nenhum jogador cadastrado ainda.</div>';
+  }else{
+    list.innerHTML = data.players.map(p => `
+      <div class="player-chip">
+        ${escapeHtml(p.name)}
+        <button data-remove-player="${p.id}" aria-label="Remover ${escapeHtml(p.name)}">&times;</button>
+      </div>
+    `).join('');
+  }
+  document.getElementById('stat-players').textContent = data.players.length;
+
+  // sessions
+  const container = document.getElementById('sessions-container');
+  if(data.sessions.length === 0){
+    container.innerHTML = '<div class="empty">Nenhum sábado registrado ainda.</div>';
+  }else{
+    container.innerHTML = data.sessions.map(s => {
+      const paidCount = data.players.filter(p => s.payments[p.id]).length;
+      const rows = data.players.length === 0
+        ? '<div class="empty">Cadastre jogadores para marcar presença.</div>'
+        : data.players.map(p => {
+            const paid = !!s.payments[p.id];
+            return `
+              <div class="pay-row">
+                <span class="pay-name">${escapeHtml(p.name)}</span>
+                <button class="pay-toggle ${paid ? 'paid' : ''}" data-toggle-session="${s.id}" data-toggle-player="${p.id}">
+                  ${paid ? 'Pago' : 'Pendente'}
+                </button>
+              </div>`;
+          }).join('');
+      return `
+        <div class="session-card">
+          <div class="session-head">
+            <div>
+              <div class="session-date">${fmtDate(s.date)}</div>
+              <div class="session-sub">${paidCount}/${data.players.length} pagaram</div>
+            </div>
+            <button class="remove-session" data-remove-session="${s.id}" aria-label="Remover sábado">&times;</button>
+          </div>
+          ${rows}
+        </div>`;
+    }).join('');
+  }
+
+  // totals
+  let totalPaid = 0, totalDue = 0;
+  const perPlayer = {};
+  data.players.forEach(p => perPlayer[p.id] = { paid: 0, due: 0, sessions: 0 });
+
+  data.sessions.forEach(s => {
+    data.players.forEach(p => {
+      if(!perPlayer[p.id]) return;
+      perPlayer[p.id].sessions += 1;
+      if(s.payments[p.id]){
+        perPlayer[p.id].paid += PRICE;
+        totalPaid += PRICE;
+      }else{
+        perPlayer[p.id].due += PRICE;
+        totalDue += PRICE;
+      }
+    });
+  });
+
+  document.getElementById('stat-paid').textContent = fmtBRL(totalPaid);
+  document.getElementById('stat-due').textContent = fmtBRL(totalDue);
+
+  const summaryEl = document.getElementById('player-summary');
+  if(data.players.length === 0){
+    summaryEl.innerHTML = '<div class="empty">Cadastre jogadores para ver o saldo.</div>';
+  }else{
+    summaryEl.innerHTML = data.players.map(p => {
+      const info = perPlayer[p.id] || { paid:0, due:0, sessions:0 };
+      const isZero = info.due === 0;
+      return `
+        <div class="ps-row">
+          <div>
+            <div class="ps-name">${escapeHtml(p.name)}</div>
+            <div class="ps-detail">${info.sessions} sábado(s) registrado(s)</div>
+          </div>
+          <div class="ps-amount ${isZero ? 'zero' : 'due'}">${isZero ? 'Em dia' : fmtBRL(info.due) + ' devendo'}</div>
+        </div>`;
+    }).join('');
+  }
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+document.getElementById('add-player-btn').addEventListener('click', addPlayer);
+document.getElementById('player-name-input').addEventListener('keydown', e => { if(e.key === 'Enter') addPlayer(); });
+document.getElementById('add-session-btn').addEventListener('click', addSession);
+
+document.addEventListener('click', e => {
+  const rp = e.target.closest('[data-remove-player]');
+  if(rp){ removePlayer(rp.getAttribute('data-remove-player')); return; }
+  const rs = e.target.closest('[data-remove-session]');
+  if(rs){ removeSession(rs.getAttribute('data-remove-session')); return; }
+  const tg = e.target.closest('[data-toggle-session]');
+  if(tg){ togglePayment(tg.getAttribute('data-toggle-session'), tg.getAttribute('data-toggle-player')); return; }
+});
+
+load();
+</script>
+
+</body>
+</html>
